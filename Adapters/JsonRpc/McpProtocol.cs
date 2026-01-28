@@ -1,4 +1,4 @@
-namespace DocumentMcpServer.Adapters;
+namespace DocumentMcpServer.Adapters.JsonRpc;
 
 /// <summary>
 /// MCP protocol method names.

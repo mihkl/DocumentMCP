@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DocumentMcpServer.Core.Interfaces;
 
-namespace DocumentMcpServer.Adapters;
+namespace DocumentMcpServer.Adapters.JsonRpc;
 
 /// <summary>
 /// MCP JSON-RPC protocol adapter for DocumentService.
@@ -11,9 +11,16 @@ namespace DocumentMcpServer.Adapters;
 public class McpJsonRpcServer(IDocumentService documentService)
 {
     private readonly IDocumentService _documentService = documentService;
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
 
     /// <summary>
     /// Processes a JSON-RPC request and returns a JSON-RPC response.
+    /// Returns empty string for notifications (no response needed).
     /// </summary>
     public string HandleRequest(string jsonRequest)
     {
@@ -28,6 +35,11 @@ public class McpJsonRpcServer(IDocumentService documentService)
             var method = request["method"]?.GetValue<string>();
             var id = request["id"];
             var params_ = request["params"];
+
+            if (id == null)
+            {
+                return string.Empty;
+            }
 
             object result = method switch
             {
@@ -226,7 +238,7 @@ public class McpJsonRpcServer(IDocumentService documentService)
             Result = result
         };
 
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(response, _jsonOptions);
     }
 
     private static string CreateErrorResponse(JsonNode? id, string errorMessage)
@@ -246,6 +258,6 @@ public class McpJsonRpcServer(IDocumentService documentService)
             Error = new ErrorInfo { Message = errorMessage }
         };
 
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(response, _jsonOptions);
     }
 }
