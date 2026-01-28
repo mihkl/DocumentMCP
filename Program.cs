@@ -3,8 +3,15 @@ using DocumentMcpServer.Core.Services;
 using DocumentMcpServer.Infrastructure.Extractors;
 using DocumentMcpServer.Infrastructure.Storage;
 using DocumentMcpServer.Adapters;
+using Microsoft.Extensions.Logging;
 
 var documentsPath = args.Length > 0 ? args[0] : Path.Combine(Directory.GetCurrentDirectory(), "Documents");
+
+using var loggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
+    builder.SetMinimumLevel(LogLevel.Information);
+});
 
 Console.Error.WriteLine("Document MCP Server starting...");
 Console.Error.WriteLine($"Documents path: {documentsPath}");
@@ -17,11 +24,11 @@ IDocumentExtractor[] extractors =
     new PdfExtractor()
 ];
 
-var store = new FileSystemDocumentStore(documentsPath, extractors);
-store.Log += message => Console.Error.WriteLine(message);
+var storeLogger = loggerFactory.CreateLogger<FileSystemDocumentStore>();
+var store = new FileSystemDocumentStore(documentsPath, extractors, storeLogger);
 
-IDocumentService documentService = new DocumentService(store);
-documentService.Log += message => Console.Error.WriteLine(message);
+var serviceLogger = loggerFactory.CreateLogger<DocumentService>();
+IDocumentService documentService = new DocumentService(store, serviceLogger);
 
 var mcpServer = new McpJsonRpcServer(documentService);
 
@@ -31,10 +38,8 @@ Console.Error.WriteLine("Listening on stdio...");
 while (true)
 {
     var line = Console.ReadLine();
-    if (line == null)
-    {
-        break;
-    }
+    if (line == null) break;
+
     try
     {
         var response = mcpServer.HandleRequest(line);

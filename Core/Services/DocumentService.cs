@@ -1,32 +1,38 @@
 using DocumentMcpServer.Core.Interfaces;
 using DocumentMcpServer.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DocumentMcpServer.Core.Services;
 
+/// <summary>
+/// Core document service: search, retrieve, summarize.
+/// </summary>
 public class DocumentService : IDocumentService
 {
-    private readonly IDocumentStore _store;
     private readonly List<Document> _documents;
+    private readonly DocumentIndex _searchIndex;
+    private readonly ILogger? _logger;
 
-    public event Action<string>? Log;
-
-    public DocumentService(IDocumentStore store)
+    public DocumentService(IDocumentStore store, ILogger<DocumentService>? logger = null)
     {
-        _store = store;
-        _documents = [.. _store.LoadDocuments()];
-
-        Log?.Invoke($"DocumentService initialized with {_documents.Count} documents");
+        _logger = logger;
+        _documents = store.LoadDocuments().ToList();
+        
+        _searchIndex = new DocumentIndex();
+        _searchIndex.Build(_documents);
+        
+        _logger?.LogInformation("DocumentService initialized with {Count} documents", _documents.Count);
     }
 
     public List<DocumentSummary> ListDocuments()
     {
-        return [.. _documents.Select(d => new DocumentSummary
+        return _documents.Select(d => new DocumentSummary
         {
             Id = d.Id,
             Title = d.Title,
             Date = d.Date,
             FilePath = d.FilePath
-        })];
+        }).ToList();
     }
 
     public Document? GetDocument(string documentId)
@@ -37,58 +43,12 @@ public class DocumentService : IDocumentService
 
     public List<SearchResult> SearchDocuments(string query)
     {
-        var results = new List<SearchResult>();
-        var queryLower = query.ToLower();
-        var keywords = queryLower.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        Log?.Invoke($"Searching for: {query}");
-
-        foreach (var doc in _documents)
-        {
-            var contentLower = doc.Content.ToLower();
-            var titleLower = doc.Title.ToLower();
-
-            var score = 0;
-            var matches = new List<string>();
-
-            foreach (var keyword in keywords)
-            {
-                if (titleLower.Contains(keyword))
-                {
-                    score += 10;
-                    matches.Add($"Title contains '{keyword}'");
-                }
-                if (contentLower.Contains(keyword))
-                {
-                    score += 1;
-                    matches.Add($"Content contains '{keyword}'");
-                }
-            }
-
-            if (contentLower.Contains(queryLower))
-            {
-                score += 20;
-                matches.Add($"Exact phrase match");
-            }
-
-            if (score > 0)
-            {
-                var excerpts = ExtractExcerpts(doc.Content, keywords, 3);
-
-                results.Add(new SearchResult
-                {
-                    DocumentId = doc.Id,
-                    Title = doc.Title,
-                    FilePath = doc.FilePath,
-                    RelevanceScore = score,
-                    Excerpts = excerpts,
-                    MatchSummary = string.Join("; ", matches.Distinct())
-                });
-            }
-        }
-
-        Log?.Invoke($"Found {results.Count} matching documents");
-        return results.OrderByDescending(r => r.RelevanceScore).ToList();
+        _logger?.LogInformation("Searching for: {Query}", query);
+        
+        var results = _searchIndex.Query(query);
+        
+        _logger?.LogInformation("Found {Count} matching documents", results.Count);
+        return results;
     }
 
     public string SummarizeDocument(string documentId)
@@ -96,7 +56,7 @@ public class DocumentService : IDocumentService
         var doc = GetDocument(documentId);
         if (doc == null)
         {
-            Log?.Invoke($"Document not found: {documentId}");
+            _logger?.LogWarning("Document not found: {DocumentId}", documentId);
             return $"Document '{documentId}' not found.";
         }
 
@@ -106,9 +66,7 @@ public class DocumentService : IDocumentService
             .ToList();
 
         var keySections = lines
-            .Where(l =>
-                System.Text.RegularExpressions.Regex.IsMatch(l, @"^\d+\.") ||
-                l.StartsWith("-"))
+            .Where(l => System.Text.RegularExpressions.Regex.IsMatch(l, @"^\d+\.") || l.StartsWith("-"))
             .Take(8)
             .ToList();
 
@@ -125,28 +83,7 @@ KEY SECTIONS:
 Total Length: {doc.Content.Length} characters
 ";
 
-        Log?.Invoke($"Generated summary for: {documentId}");
+        _logger?.LogInformation("Generated summary for: {DocumentId}", documentId);
         return summary;
-    }
-
-    private static List<string> ExtractExcerpts(string content, string[] keywords, int maxExcerpts)
-    {
-        var excerpts = new List<string>();
-        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (var line in lines)
-        {
-            var lineLower = line.ToLower();
-            if (keywords.Any(lineLower.Contains))
-            {
-                excerpts.Add(line.Trim());
-                if (excerpts.Count >= maxExcerpts)
-                {
-                    break;
-                }
-            }
-        }
-
-        return excerpts;
     }
 }

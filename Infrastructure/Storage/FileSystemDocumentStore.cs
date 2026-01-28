@@ -1,5 +1,6 @@
 using DocumentMcpServer.Core.Interfaces;
 using DocumentMcpServer.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace DocumentMcpServer.Infrastructure.Storage;
 
@@ -10,16 +11,17 @@ public class FileSystemDocumentStore : IDocumentStore
 {
     private readonly string _documentsPath;
     private readonly IEnumerable<IDocumentExtractor> _extractors;
+    private readonly ILogger? _logger;
     private readonly List<Document> _documents;
-
-    public event Action<string>? Log;
 
     public FileSystemDocumentStore(
         string documentsPath,
-        IEnumerable<IDocumentExtractor> extractors)
+        IEnumerable<IDocumentExtractor> extractors,
+        ILogger<FileSystemDocumentStore>? logger = null)
     {
         _documentsPath = documentsPath;
         _extractors = extractors;
+        _logger = logger;
         _documents = [];
         
         LoadDocumentsFromFileSystem();
@@ -37,13 +39,13 @@ public class FileSystemDocumentStore : IDocumentStore
     {
         if (!Directory.Exists(_documentsPath))
         {
-            Log?.Invoke($"WARNING: Documents path not found: {_documentsPath}");
+            _logger?.LogWarning("Documents path not found: {Path}", _documentsPath);
             return;
         }
 
-        Log?.Invoke($"Loading documents from: {_documentsPath}");
+        _logger?.LogInformation("Loading documents from: {Path}", _documentsPath);
         var files = Directory.GetFiles(_documentsPath, "*.*", SearchOption.AllDirectories).ToList();
-        Log?.Invoke($"Found {files.Count} files");
+        _logger?.LogInformation("Found {Count} files", files.Count);
 
         foreach (var filePath in files)
         {
@@ -64,10 +66,7 @@ public class FileSystemDocumentStore : IDocumentStore
                     if (lines.Length > 0)
                     {
                         title = lines[0].Trim();
-                        if (title.Length > 100)
-                        {
-                            title = string.Concat(title.AsSpan(0, 100), "...");
-                        }
+                        if (title.Length > 100) title = title.Substring(0, 100) + "...";
                     }
                 }
 
@@ -80,17 +79,17 @@ public class FileSystemDocumentStore : IDocumentStore
                     FilePath = filePath
                 });
 
-                Log?.Invoke($"  Loaded: {relativePath}");
+                _logger?.LogDebug("Loaded: {Path}", relativePath);
             }
             catch (Exception ex)
             {
-                Log?.Invoke($"  Error loading {filePath}: {ex.Message}");
+                _logger?.LogError(ex, "Error loading {Path}", filePath);
             }
         }
 
         if (_documents.Count == 0)
         {
-            Log?.Invoke("WARNING: No documents loaded. Server will return empty results.");
+            _logger?.LogWarning("No documents loaded");
         }
     }
 }
