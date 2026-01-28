@@ -27,8 +27,10 @@ IDocumentExtractor[] extractors =
 var storeLogger = loggerFactory.CreateLogger<FileSystemDocumentStore>();
 var store = new FileSystemDocumentStore(documentsPath, extractors, storeLogger);
 
+IDocumentIndex searchIndex = new DocumentIndex();
+
 var serviceLogger = loggerFactory.CreateLogger<DocumentService>();
-IDocumentService documentService = new DocumentService(store, serviceLogger);
+IDocumentService documentService = new DocumentService(store, searchIndex, serviceLogger);
 
 var mcpServer = new McpJsonRpcServer(documentService);
 

@@ -1,11 +1,12 @@
 using DocumentMcpServer.Core.Models;
+using DocumentMcpServer.Core.Interfaces;
 
 namespace DocumentMcpServer.Core.Services;
 
 /// <summary>
 /// Document search and indexing engine.
 /// </summary>
-public class DocumentIndex
+public class DocumentIndex : IDocumentIndex
 {
     private readonly List<Document> _documents;
 

@@ -42,7 +42,8 @@ public class DocumentServiceTests
         };
 
         var store = new MockDocumentStore(documents);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var result = service.ListDocuments();
 
@@ -64,9 +65,9 @@ public class DocumentServiceTests
                 FilePath = "test.txt"
             }
         };
-
         var store = new MockDocumentStore(documents);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var result = service.GetDocument("test-doc");
 
@@ -79,7 +80,8 @@ public class DocumentServiceTests
     public void GetDocument_WithInvalidId_ReturnsNull()
     {
         var store = new MockDocumentStore([]);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var result = service.GetDocument("nonexistent");
 
@@ -108,7 +110,8 @@ public class DocumentServiceTests
         };
 
         var store = new MockDocumentStore(documents);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var results = service.SearchDocuments("kubernetes");
 
@@ -131,7 +134,8 @@ public class DocumentServiceTests
         };
 
         var store = new MockDocumentStore(documents);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var summary = service.SummarizeDocument("test-doc");
 
@@ -144,7 +148,8 @@ public class DocumentServiceTests
     public void SummarizeDocument_WithInvalidId_ReturnsNotFoundMessage()
     {
         var store = new MockDocumentStore([]);
-        var service = new DocumentService(store);
+        var searchIndex = new DocumentIndex();
+        var service = new DocumentService(store, searchIndex);
 
         var summary = service.SummarizeDocument("nonexistent");
 

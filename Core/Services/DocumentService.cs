@@ -10,15 +10,15 @@ namespace DocumentMcpServer.Core.Services;
 public class DocumentService : IDocumentService
 {
     private readonly List<Document> _documents;
-    private readonly DocumentIndex _searchIndex;
+    private readonly IDocumentIndex _searchIndex;
     private readonly ILogger? _logger;
 
-    public DocumentService(IDocumentStore store, ILogger<DocumentService>? logger = null)
+    public DocumentService(IDocumentStore store, IDocumentIndex searchIndex, ILogger<DocumentService>? logger = null)
     {
         _logger = logger;
-        _documents = store.LoadDocuments().ToList();
+        _searchIndex = searchIndex;
+        _documents = [.. store.LoadDocuments()];
         
-        _searchIndex = new DocumentIndex();
         _searchIndex.Build(_documents);
         
         _logger?.LogInformation("DocumentService initialized with {Count} documents", _documents.Count);
@@ -26,13 +26,13 @@ public class DocumentService : IDocumentService
 
     public List<DocumentSummary> ListDocuments()
     {
-        return _documents.Select(d => new DocumentSummary
+        return [.. _documents.Select(d => new DocumentSummary
         {
             Id = d.Id,
             Title = d.Title,
             Date = d.Date,
             FilePath = d.FilePath
-        }).ToList();
+        })];
     }
 
     public Document? GetDocument(string documentId)
